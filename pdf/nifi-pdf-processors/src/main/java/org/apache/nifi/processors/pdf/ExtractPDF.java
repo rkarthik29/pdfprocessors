@@ -16,6 +16,7 @@
  */
 package org.apache.nifi.processors.pdf;
 
+import java.awt.Graphics2D;
 import java.awt.Rectangle;
 import java.awt.image.BufferedImage;
 import java.awt.image.RenderedImage;
@@ -112,6 +113,16 @@ public class ExtractPDF extends AbstractProcessor {
             .defaultValue("tiff")
             .addValidator(StandardValidators.NON_EMPTY_VALIDATOR)
             .build();
+    
+    public static final PropertyDescriptor CONVERT_GRAY = new PropertyDescriptor
+            .Builder().name("CONVERT_GRAY")
+            .displayName("convert to gray scale")
+            .description("tconvert to gray scale")
+            .required(true)
+            .allowableValues("true","false")
+            .defaultValue("false")
+            .addValidator(StandardValidators.NON_EMPTY_VALIDATOR)
+            .build();
 
     public static final Relationship SUCCESS = new Relationship.Builder()
             .name("SUCCESS")
@@ -140,7 +151,9 @@ public class ExtractPDF extends AbstractProcessor {
         descriptors.add(PAGES_TO_EXTRACT);
         descriptors.add(IMAGE_LOCATION);
         descriptors.add(IMAGE_SIZE);
+        descriptors.add(CONVERT_GRAY);
         descriptors.add(IMAGE_TYPE);
+        
         this.descriptors = Collections.unmodifiableList(descriptors);
 
         final Set<Relationship> relationships = new HashSet<Relationship>();
@@ -177,6 +190,7 @@ public class ExtractPDF extends AbstractProcessor {
         final Boolean imageLocation = context.getProperty(IMAGE_LOCATION).asBoolean();
         final Boolean imageSize=context.getProperty(IMAGE_SIZE).asBoolean();
         final String imageType= context.getProperty(IMAGE_TYPE).getValue();
+        final Boolean toGS = context.getProperty(CONVERT_GRAY).asBoolean();
         final List<FlowFile> ffList = new ArrayList<FlowFile>(); 
         try{
         
@@ -197,21 +211,40 @@ public class ExtractPDF extends AbstractProcessor {
                 		PDXObject image =pdResources.getXObject(cosName);
                 		if(image instanceof PDImageXObject){
                 			PDImageXObject pdImage = (PDImageXObject)image;
-                		BufferedImage imageStream = pdImage.getImage();
-                        //imageStream=createFlipped(imageStream);
-                		FlowFile imgFF = session.create(flowFile);
-                		imgFF = session.putAttribute(imgFF, "page", pageNum+"");
-                		imgFF = session.putAttribute(imgFF, "image", imageNum+"");
-                		imgFF = session.write(imgFF, new OutputStreamCallback() {
+                			FlowFile imgFF = session.create(flowFile);
+                    		imgFF = session.putAttribute(imgFF, "page", pageNum+"");
+                    		imgFF = session.putAttribute(imgFF, "image", imageNum+"");
+                    		String filename=flowFile.getAttribute("filename");
+                    		imgFF = session.putAttribute(imgFF, "filename", filename.split("\\.")[0]+pageNum+"-"+imageNum+"."+imageType);
+                		if(toGS){
+                    		BufferedImage img = pdImage.getImage();
+                    		BufferedImage imageStream = new BufferedImage(img.getWidth(), img.getHeight(),
+                                    BufferedImage.TYPE_BYTE_GRAY);
+                			Graphics2D g = imageStream.createGraphics();
+                            g.drawImage(img, 0, 0, null);
+                            imgFF = session.write(imgFF, new OutputStreamCallback() {
 
-							@Override
-							public void process(OutputStream out) throws IOException {
-								// TODO Auto-generated method stub
-								ImageIO.write((RenderedImage)imageStream,imageType, ImageIO.createImageOutputStream(out));
-							}
+    							@Override
+    							public void process(OutputStream out) throws IOException {
+    								// TODO Auto-generated method stub
+    								ImageIO.write((RenderedImage)imageStream,imageType, ImageIO.createImageOutputStream(out));
+    							}
+                    			
+                    		});
+                		}else{
+                			BufferedImage imageStream=pdImage.getImage();
+                			imgFF = session.write(imgFF, new OutputStreamCallback() {
+
+    							@Override
+    							public void process(OutputStream out) throws IOException {
+    								// TODO Auto-generated method stub
+    								ImageIO.write((RenderedImage)imageStream,imageType, ImageIO.createImageOutputStream(out));
+    							}
+                    			
+                    		});
                 			
-                		});
-                		
+                		}
+                        //imageStream=createFlipped(imageStream);
                 		ffList.add(imgFF);
                 		}
                 }

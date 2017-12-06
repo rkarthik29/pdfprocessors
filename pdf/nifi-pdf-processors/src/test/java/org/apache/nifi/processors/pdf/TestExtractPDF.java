@@ -49,6 +49,7 @@ public class TestExtractPDF {
     	
     	File pdf = new File("/Users/knarayanan/listingappraisalsample.pdf");
     	testRunner.setProperty(ExtractPDF.CONTENT_TO_EXTRACT, "IMAGE");
+    	testRunner.setProperty(ExtractPDF.CONVERT_GRAY, "true");
     	testRunner.enqueue(pdf.toPath());
     	testRunner.run();
     	testRunner.assertTransferCount(ExtractPDF.SUCCESS, 18);
