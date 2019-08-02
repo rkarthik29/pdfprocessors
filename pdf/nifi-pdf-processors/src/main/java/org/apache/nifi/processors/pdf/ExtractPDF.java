@@ -75,6 +75,7 @@ public class ExtractPDF extends AbstractProcessor {
             .description("Extract image or text from the pdf")
             .required(true)
             .allowableValues("IMAGE","TEXT")
+            .defaultValue("TEXT")
             .addValidator(StandardValidators.NON_EMPTY_VALIDATOR)
             .build();
     public static final PropertyDescriptor PAGES_TO_EXTRACT = new PropertyDescriptor
